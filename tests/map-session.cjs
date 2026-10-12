@@ -3,6 +3,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 class Element {
  constructor(tag='div'){this.tagName=tag;this.nodeType=1;this.children=[];this.attrs={};this.handlers={};this.value='';this.hidden=false;this.disabled=false;this.textContent='';this.classList={add(){},remove(){},toggle(){}};}
+ focus(){}
  setAttribute(k,v){this.attrs[k]=v;if(k==='id')this.id=v;}
  append(...nodes){this.children.push(...nodes);}
  replaceChildren(...nodes){this.children=nodes;}
@@ -16,6 +17,7 @@ class Element {
  const roots=Object.fromEntries(['folio-card','folio-concealed','folio-status'].map(id=>[id,new Element()]));
  const walk=(n,id)=>n.id===id?n:n.children.map(c=>c?.children?walk(c,id):null).find(Boolean);
  const doc={createElement:t=>new Element(t),createTextNode:t=>({nodeType:3,textContent:t}),getElementById:id=>roots[id]||Object.values(roots).map(n=>walk(n,id)).find(Boolean)};
+ doc.querySelector=()=>null;
  const listeners={};const win={addEventListener:(k,f)=>(listeners[k]??=[]).push(f),scrollTo(){}};
  const ctx=vm.createContext({...model,document:doc,window:win,confirm:()=>true,t:x=>x,console,setTimeout});
  const source=fs.readFileSync(require('node:path').join(__dirname,'../map/map-native.js'),'utf8').replace(/^import .*;\s*$/gm,'').replace(/export /g,'');vm.runInContext(source,ctx);
@@ -49,4 +51,17 @@ class Element {
  console.log('PASS new guide starts independent session');
  await journal();d=deferred();run('showDecrypt({})');doc.getElementById('folio-unlock-password').value='invented password';done=findText(roots['folio-card'],'Open').fire('click');d.resolve({...model.blankPlan(),meta:{planName:'File fixture'}});await done;assert.equal(run('S.origin'),'independent');assert.equal(run('S.plan.meta.planName'),'File fixture');
  console.log('PASS encrypted-file replacement starts independent session');
+ independent();run('S.step=STEPS.length-1;renderWizard()');const homeEpoch=run('sessionEpoch');doc.getElementById('map-password').value='invented password';const oldPassword=doc.getElementById('map-password');await findText(roots['folio-card'],'Return to Map home').fire('click');assert.ok(doc.getElementById('map-resume-current'));assert.equal(run('S.plan.meta.planName'),'Independent fixture');assert.equal(run('sessionCurrent('+homeEpoch+')'),false);assert.equal(oldPassword.value,'');console.log('PASS export return-home preserves guide, clears password and invalidates pending work');
+ for(const origin of ['independent','journal']){
+ independent();ctx.origin=origin;run("S.origin=origin;S.mode='wizard';S.step=STEPS.length-1;renderWizard()");
+ d=deferred();e=exportStart();run("appendModeSwitch(document.getElementById('folio-card'))");
+ const old=doc.getElementById('map-password');old.value='another invented password';
+ const prior=snapshot();await findText(roots['folio-card'],'Heir View').fire('click');
+ d.resolve({encrypted:'obsolete view'});await e.done;
+ assert.equal(ctx.downloads.length,1);assert.equal(old.value,'');assert.equal(run('S.origin'),origin);assert.equal(run('S.dirty'),true);
+ assert.equal(run('S.plan.meta.planName'),JSON.parse(prior).meta.planName);
+ await findText(roots['folio-card'],'Plan Editor').fire('click');assert.equal(run('S.step'),run('STEPS.length-1'));assert.equal(run('S.origin'),origin);
+ if(origin==='journal'){run('lockJournalFolio()');assert.equal(run('S.plan.meta.planName'),'');}
+ }
+ console.log('PASS view switches invalidate pending export, clear passwords and preserve dirty state and origin; Journal lock still wipes');
 })().catch(e=>{console.error(e);process.exitCode=1;});

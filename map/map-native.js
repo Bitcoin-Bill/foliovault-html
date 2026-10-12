@@ -17,7 +17,7 @@ function syncGuide(){}
 function clearFolioSession(){
   sessionEpoch++;
   (document.getElementById('folio-card')?.querySelectorAll('input,textarea')||[]).forEach(field=>{field.value='';});
-  S.plan=blankPlan();S.dirty=false;S.mode='landing';S.origin='independent';
+  S.plan=blankPlan();S.dirty=false;S.mode='landing';S.origin='independent';S.step=0;S.heirStep=0;
   toast('');
   document.getElementById('folio-card')?.replaceChildren();
   concealHeir=()=>{};
@@ -26,6 +26,7 @@ function sessionCurrent(epoch){return epoch===sessionEpoch;}
 
 const S = {
   mode: 'landing',          // landing | wizard | review | export | heir
+  heirStep: 0,
   step: 0,
   plan: blankPlan(),
   dirty: false,
@@ -780,7 +781,7 @@ function showOpenChoice(plan){
   m.append(el('h2',{},'Plan opened: '+(plan.meta.planName||'untitled')));
   m.append(el('p',{class:'step-intro'},'Choose a read-only beneficiary guide or the editor. Editing saves a new encrypted copy.'));
   m.append(el('div',{class:'btn-row'},
-    el('button',{class:'btn',onclick:()=>{S.plan=plan;S.mode='wizard';S.step=0;S.dirty=false;syncGuide();renderWizard();}},'Plan Editor — update and re-encrypt'),
+    el('button',{class:'btn',onclick:()=>{S.plan=plan;S.mode='wizard';syncGuide();renderWizard();}},'Plan Editor — update and re-encrypt'),
     el('button',{class:'btn ghost',onclick:()=>showHeir(plan)},'Beneficiary View — step-by-step guide')));
   window.scrollTo(0,0);
 }
@@ -808,45 +809,90 @@ function beneficiarySteps(plan,reveal=false){
   return steps;
 }
 let concealHeir=()=>{};
-function showHeir(plan){
+function showHeir(plan, initialSection=S.heirStep){
   S.plan=plan;S.mode='heir';
-  let current=0,reveal=false;
-  concealHeir=()=>{if(reveal){reveal=false;paint();}};
-  function paint(){
-    const m=document.getElementById('folio-card');m.innerHTML='';
-    m.append(el('div',{class:'heir-banner'},el('div',{class:'folio'},'Beneficiary view · read only'),el('h2',{},'Map · Heir View'),el('p',{},'One step at a time. This view does not change your saved plan.')));
-    const steps=beneficiarySteps(plan,reveal),nav=el('div',{class:'btn-row'});
-    plan.heirChecklist??={}; plan.heirNotes??='';
-    if(current<steps.length){
-      const done=el('input',{type:'checkbox','data-folio-check':String(current+1)}); done.checked=!!plan.heirChecklist[String(current+1)];
-      done.addEventListener('change',()=>{plan.heirChecklist[String(current+1)]=done.checked;markDirty();});
-      m.append(el('label',{},done,' Mark this step complete'));
-    }
-    const notes=el('textarea',{id:'folio-heir-notes','aria-label':'Beneficiary notes',placeholder:'What you tried, who you called…'}); notes.value=plan.heirNotes;
-    notes.addEventListener('input',()=>{plan.heirNotes=notes.value;markDirty();});
-    m.append(el('h3',{},'Your private working notes'),notes);
-    m.append(el('p',{class:'small muted'},'Notes and progress stay in this session until you download a new encrypted copy. Keep the package passphrase separate.'));
-    m.append(el('button',{class:'btn ghost',onclick:()=>{S.plan=plan;m.innerHTML='';renderExport(m);m.append(el('button',{class:'btn ghost',onclick:()=>showHeir(plan)},'Return to beneficiary guide'));}},'Back up notes and progress'));
-    const picker=el('select',{'aria-label':'Recovery step'});
-    [...steps,['Full reference (advanced)']].forEach(([title],i)=>picker.append(el('option',{value:i},(i+1)+'. '+title)));
-    picker.value=String(current);picker.addEventListener('change',()=>{current=Number(picker.value);paint();});
-    m.append(picker);
-    if(current===steps.length)m.append(buildRunbook(safeGuidePlan(plan,reveal)));
-    else{m.append(el('h3',{},steps[current][0]),el('pre',{class:'journal-log','data-private-value':''},steps[current][1]));}
-    const toggle=el('input',{type:'checkbox','data-private-reveal':'','data-folio-reveal':''});toggle.checked=reveal;toggle.addEventListener('change',()=>{reveal=toggle.checked;paint();});
-    m.append(el('label',{},toggle,' Show direct journal / watch-only access details on screen'));
-    if(current>0)nav.append(el('button',{class:'btn ghost',onclick:()=>{current--;paint();}},'← Previous'));
-    if(current<steps.length)nav.append(el('button',{class:'btn',onclick:()=>{current++;paint();}},'Next step →'));
-    nav.append(el('button',{class:'btn ghost',onclick:()=>{concealNativeFolio();}},'Hide guide'));
-    m.append(nav);window.scrollTo(0,0);
+  let current=initialSection,reveal=false;
+  const m=document.getElementById('folio-card');m.replaceChildren();
+  appendModeSwitch(m);
+  plan.heirChecklist??={}; plan.heirNotes??='';
+  m.append(el('div',{class:'heir-banner'},el('div',{class:'folio'},'Beneficiary view · read only'),el('h2',{},'Map · Heir View'),el('p',{},'Choose any section below. Your notes and progress stay with this guide.')));
+  const sections=[...beneficiarySteps(plan,false).map(([title])=>title),'Full reference (advanced)'];
+  current=Math.min(Math.max(0,current),sections.length-1);
+  const tabs=el('div',{class:'row',role:'tablist','aria-label':'Guide sections'});
+  const panel=el('section',{id:'map-heir-panel',role:'tabpanel',tabindex:'0'});
+  const buttons=sections.map((title,i)=>{
+    const button=el('button',{type:'button',id:'map-heir-tab-'+i,role:'tab','aria-controls':'map-heir-panel',onclick:()=>select(i)},(i+1)+'. '+title);
+    button.addEventListener('keydown',e=>{
+      let next;
+      if(e.key==='ArrowRight')next=(i+1)%sections.length;
+      else if(e.key==='ArrowLeft')next=(i+sections.length-1)%sections.length;
+      else if(e.key==='Home')next=0;
+      else if(e.key==='End')next=sections.length-1;
+      else return;
+      e.preventDefault();select(next);buttons[next].focus();
+    });
+    tabs.append(button);return button;
+  });
+  m.append(tabs,panel);
+  const done=el('input',{type:'checkbox'});
+  const completion=el('label',{class:'switch-row'},done,' Mark this section complete');
+  done.addEventListener('change',()=>{plan.heirChecklist[String(current+1)]=done.checked;markDirty();});
+  const toggle=el('input',{type:'checkbox','data-private-reveal':'','data-folio-reveal':''});
+  toggle.addEventListener('change',()=>{reveal=toggle.checked;paintSection();});
+  m.append(completion,el('label',{class:'switch-row'},toggle,' Show direct journal / watch-only access details on screen'));
+  const previous=el('button',{class:'btn ghost',onclick:()=>select(current-1)},'← Previous');
+  const next=el('button',{class:'btn',onclick:()=>select(current+1)},'Next →');
+  m.append(el('div',{class:'btn-row'},previous,next,el('button',{class:'btn ghost',onclick:concealNativeFolio},'Hide guide')));
+  const notes=el('textarea',{id:'folio-heir-notes','aria-label':'Beneficiary notes',placeholder:'What you tried, who you called…'});notes.value=plan.heirNotes;
+  notes.addEventListener('input',()=>{plan.heirNotes=notes.value;markDirty();});
+  m.append(el('h3',{},'Your private working notes'),notes,el('p',{class:'small muted'},'Notes and progress stay in this session until you download a new encrypted copy. Keep the package passphrase separate.'));
+  m.append(el('button',{class:'btn ghost',onclick:()=>{m.replaceChildren();appendModeSwitch(m);renderExport(m);m.append(el('button',{class:'btn ghost',onclick:()=>showHeir(plan,current)},'Return to beneficiary guide'));}},'Back up notes and progress'));
+  function select(index){
+    current=Math.min(Math.max(0,index),sections.length-1);paintSection();
   }
-  paint();
+  function paintSection(){
+    S.heirStep=current;
+    const steps=beneficiarySteps(plan,reveal);
+    buttons.forEach((button,i)=>{
+      button.className=i===current?'btn primary':'btn secondary';
+      button.setAttribute('aria-selected',String(i===current));
+      button.setAttribute('tabindex',i===current?'0':'-1');
+    });
+    panel.setAttribute('aria-labelledby','map-heir-tab-'+current);
+    panel.replaceChildren();
+    if(current===steps.length)panel.append(buildRunbook(safeGuidePlan(plan,reveal)));
+    else panel.append(el('h3',{},steps[current][0]),el('pre',{class:'journal-log','data-private-value':''},steps[current][1]));
+    completion.hidden=current===steps.length;
+    done.setAttribute('data-folio-check',String(current+1));done.checked=!!plan.heirChecklist[String(current+1)];
+    previous.disabled=current===0;next.disabled=current===sections.length-1;
+  }
+  concealHeir=()=>{if(reveal){reveal=false;toggle.checked=false;paintSection();}};
+  paintSection();
 }
 
+
+function appendModeSwitch(host){
+  const group=el('div',{class:'row',role:'group','aria-label':'Map view'});
+  for(const [mode,label] of [['wizard','Plan Editor'],['heir','Heir View']]){
+    const button=el('button',{type:'button',class:S.mode===mode?'btn':'btn ghost','aria-pressed':String(S.mode===mode),'data-map-mode':mode,onclick:()=>{
+      if(S.mode===mode)return;
+      // Changing views abandons pending operations, never the current guide.
+      sessionEpoch++;
+      document.getElementById('folio-card')?.querySelectorAll('input[type="password"]').forEach(field=>{field.value='';});
+      concealHeir();concealHeir=()=>{};
+      S.mode=mode;
+      if(mode==='heir')showHeir(S.plan);else renderWizard();
+      document.querySelector('[data-map-mode="'+mode+'"]')?.focus();
+    }},label);
+    group.append(button);
+  }
+  host.append(group);
+}
 
 /* ---------- wizard shell ---------- */
 function renderWizard(){
   const m=document.getElementById('folio-card'); m.innerHTML='';
+  appendModeSwitch(m);
   m.append(el('div',{class:'folio'},'Plan Editor · changes are kept only after encrypted export'));
   const bar=el('div',{class:'field'}),pick=el('select',{id:'folio-section','aria-label':'Guide section'});
   STEPS.forEach((section,i)=>pick.append(el('option',{value:i},String(i+1).padStart(2,'0')+' · '+section.title)));
@@ -886,7 +932,7 @@ function renderWizard(){
   const nav=el('div',{class:'wiz-nav'});
   const prev=el('button',{class:'btn ghost',onclick:()=>{ if(S.step===0){ if(confirm('Leave the wizard? Unexported work will be lost.')) renderHome(); } else {S.step--;renderWizard();} }},S.step===0?'← Exit':'← Back');
   const pos=el('span',{class:'wiz-pos'},`Map ${String(S.step).padStart(2,'0')} / ${String(STEPS.length-1).padStart(2,'0')}`);
-  const next=el('button',{class:'btn',onclick:()=>{ if(S.step<STEPS.length-1){S.step++;renderWizard();window.scrollTo(0,0);} }},S.step===STEPS.length-1?'Done':'Continue →');
+  const next=el('button',{class:'btn',onclick:()=>{ if(S.step<STEPS.length-1){S.step++;renderWizard();window.scrollTo(0,0);}else{showMapHome();} }},S.step===STEPS.length-1?'Return to Map home':'Continue →');
   nav.append(prev,pos,next);
   m.append(nav);
   window.scrollTo(0,0);
