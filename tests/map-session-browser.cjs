@@ -1,0 +1,20 @@
+// Optional focused GUI check. Supply PLAYWRIGHT_MODULE, CHROMIUM_BINARY and
+// MAP_QA_HTML (separate upstream --test-hooks build, never the shipping artifact).
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const assert=require('node:assert/strict');const {pathToFileURL}=require('node:url');
+(async()=>{const browser=await chromium.launch({executablePath:process.env.CHROMIUM_BINARY,headless:true,args:['--no-sandbox']});try{
+ const page=await browser.newPage({acceptDownloads:true});const errors=[],network=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/^https?:/.test(r.url()))network.push(r.url());});
+ await page.goto(pathToFileURL(process.env.MAP_QA_HTML).href);await page.click('#beta-disclaimer-accept');const label=await page.locator('#beta-disclaimer-proof-label span:not([hidden])').innerText();const word=label.match(/number (\w+)/)[1];await page.fill('#beta-disclaimer-proof',String(['zero','one','two','three','four','five','six','seven','eight','nine'].indexOf(word)));await page.click('#beta-disclaimer-confirm');
+ const journal=()=>page.locator('[data-workspace="journal"]').click();const map=()=>page.click('#map-addon-tab');
+ await journal();await page.fill('#journal-create-password','invented session password');await page.fill('#journal-create-confirm','invented session password');await page.click('#journal-create');
+ await map();await page.click('#map-create');await page.locator('#folio-section').selectOption('1');await page.locator('[data-folio-path="meta.planName"]').fill('Independent fixture');
+ await page.locator('#folio-section').selectOption('14');await page.click('#map-to-journal');
+ await page.fill('#map-password','invented session password');await page.fill('#map-confirm','invented session password');const dl=page.waitForEvent('download');await page.click('#map-backup');const backupPath=await (await dl).path();
+ await journal();await page.click('#journal-book-tab');await page.click('#journal-lock');await map();assert.match(await page.locator('#folio-status').innerText(),/Map work untouched/);await page.click('#map-home');await page.click('#map-resume-current');assert.match(await page.locator('#folio-card').innerText(),/Independent fixture/);
+ console.log('PASS real Journal lock preserves independently authored-and-stored Map');
+ await journal();await page.fill('#journal-create-password','invented session password');await page.fill('#journal-create-confirm','invented session password');await page.click('#journal-create');await page.click('#journal-notes-tab');await page.setInputFiles('#journal-notes-file',backupPath);await page.waitForFunction(()=>document.querySelector('#journal-notes-text').value.startsWith('ENTROPYLAB-MAP/1\n'));
+ await map();await page.click('#map-home');await page.click('#map-from-journal');await page.getByRole('button',{name:'Plan Editor — update and re-encrypt',exact:true}).click();await page.locator('#folio-section').selectOption('1');await page.locator('[data-folio-path="meta.planName"]').fill('Journal edited fixture');
+ await journal();await page.click('#journal-book-tab');await page.click('#journal-lock');await map();assert.equal(await page.locator('#map-resume-current').count(),0);assert.doesNotMatch(await page.locator('#folio-card').innerText(),/Journal edited fixture/);assert.ok(await page.locator('#map-create').count());console.log('PASS real Journal load/edit/lock wipes Map and renders home');
+ await page.click('#map-create');await page.locator('#folio-section').selectOption('1');await page.locator('[data-folio-path="meta.planName"]').fill('Pagehide fixture');await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pagehide')));await map();assert.ok(await page.locator('#map-create').count());assert.equal(await page.locator('#map-resume-current').count(),0);console.log('PASS pagehide clears without empty card');
+ assert.deepEqual(errors,[]);assert.deepEqual(network,[]);console.log('PASS Chromium '+browser.version()+'; no page errors or HTTP(S) requests');
+ }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1});

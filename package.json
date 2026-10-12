@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node tests/folio_html.cjs && node --test tests/folio-panel.test.mjs && node tests/map-compatibility.cjs",
+    "test": "node tests/folio_html.cjs && node --test tests/folio-panel.test.mjs && node tests/map-compatibility.cjs && node tests/map-session.cjs",
     "verify": "node scripts/verify.mjs",
     "build:map": "node scripts/build-map.mjs"
   }
