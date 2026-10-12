@@ -111,19 +111,26 @@ identity, invented fixtures, exact tests and remaining limits. Request re-review
 behavioral fixes before merge. The owner decides merges; this tracker does not
 approve deployments or upstream changes. Desktop vault-folio work is outside scope.
 
-## Next Kimi review assignment
+## Kimi follow-up completed; next implementation review
 
-Review the updated Codex acceptance report alongside your own report and this tracker.
-Confirm both cover the same artifact; identify any unsupported or conflicting claims
-and distinguish independently tested behavior from supplied evidence. Do not repeat
-the full crypto/build review without a new reason.
+[Kimi's final follow-up](reviews/KIMI-MAP-FOLLOWUP.md), received 2026-10-12,
+supersedes the interim reconciliation note. It confirms matching artifacts and no
+conflicting review claims. Its internal 2026-10-13 date is preserved as supplied.
 
-Prioritize MAP-04: propose a minimal provenance/session policy for independent,
-Journal-loaded and Journal-linked guides, including pending operations during lock.
-Check it preserves host protections and specify regression cases. Flag any related
-MAP-05/MAP-06 lifecycle interactions. This is design review, not permission to weaken
-cleanup or modify host code.
+MAP-04 proposal: track session origin. Journal-derived sessions clear immediately
+on Journal lock; independent sessions conceal and retain work. Storing an independent
+Map into Journal does not reclassify it; Journal-derived sessions never demote.
+End session, pagehide and persisted pageshow still clear both origins. The proposal
+is not implemented or validated by this documentation merge. The report's security
+assessment remains a design claim pending implementation review and regression tests.
 
-Return a short reconciliation/design report with remaining blockers, proposed policy,
-and tests. Review only: no implementation, pushes, merges, deployment, or maintainer
-contact. Safari remains a separately recorded acceptance task.
+Implement MAP-05 lifecycle consolidation with or before MAP-04, and use MAP-06's
+epoch guard for save-button restoration. Cover all nine regression cases in the
+follow-up, including asynchronous operations and the separate Journal-enabled QA build.
+Keep MAP-01/02/03 independently reviewable. All six findings remain open.
+
+Next: prepare focused patch PRs for Kimi's review, record Node 24+ validation and
+new artifact hashes, then perform affected browser acceptance/user testing.
+The current frozen build may be tested with invented data; it does not contain
+these proposed fixes. TEST-01 through TEST-05 remain open. Kimi cannot independently
+close Safari or Node 24 runtime validation in the environment stated in the report.
