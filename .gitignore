@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.csp.json
+*.elkeys
+*.env
+.DS_Store

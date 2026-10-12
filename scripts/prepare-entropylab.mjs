@@ -1,0 +1,14 @@
+import {readFileSync,copyFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import {resolve} from 'node:path';
+const target=process.argv[2];if(!target)throw Error('Pass a local EntropyLab checkout path');
+const root=resolve(target),meta=JSON.parse(readFileSync(new URL('../integration/FOUNDATION.json',import.meta.url),'utf8'));
+const git=(args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim();
+if(git(['rev-parse','HEAD'])!==meta.entropyCommit)throw Error('Wrong EntropyLab foundation commit');
+if(git(['status','--porcelain']))throw Error('EntropyLab checkout must be clean');
+const patch=new URL('../integration/entropylab-source.patch',import.meta.url);
+const {fileURLToPath}=await import('node:url');
+git(['apply','--check',fileURLToPath(patch)]);
+git(['apply',fileURLToPath(patch)]);
+copyFileSync(new URL('../src/foliovault.html',import.meta.url),resolve(root,'src/foliovault.html'));
+console.log('Prepared local sources only. In that checkout: npm ci --ignore-scripts; npm run build; npm test; npm run verify');
