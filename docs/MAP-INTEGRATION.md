@@ -49,7 +49,12 @@ The Journal's optional blank-password behavior remains unchanged. Map's own back
 requires a 12+ character password; storing a page in an unprotected Journal does
 not create access protection. Users must keep the Journal encryption option on.
 
-Journal lock clears Map when the host transitions from unlocked to locked. Host
+Journal lock immediately clears Journal-derived Map sessions. Independent guides
+(created in Map or opened from encrypted files) are concealed but retained in memory.
+Storing an independent guide into Journal does not reclassify its authoring session;
+loading a Journal Map page does. Editing a Journal-derived guide never demotes it.
+Later edits to the Journal page do not flow back into the live Map session.
+An independent encrypted export may finish after Journal locks. Host
 End session dispatches pagehide; Map clears its fields/state and invalidates pending
 work, then the host retires its original modules. This is best-effort erasure.
 

@@ -99,7 +99,8 @@ YubiKey and question-set unlock remain unsupported.
 
 Map inherits host boot/WASM tests, shared GUI controls, theme, translation and
 writing-service opt-outs, and End session behavior. Additional Map hooks clear
-its state on pagehide/bfcache restoration and Journal lock, invalidate pending
+its state on pagehide/bfcache restoration and clear Journal-derived state on Journal
+lock (independent Map work is concealed and retained), invalidate pending
 imports/exports, and conceal the guide on blur, hidden-page or five-minute idle.
 No guide or credential is intentionally written to browser databases or sent over
 the network. There is no plaintext Map download or new clipboard API.

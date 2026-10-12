@@ -1,5 +1,5 @@
 // Optional add-on. No EntropyLab function, crypto primitive or data schema is replaced.
-import {initNativeFolio,revealNativeFolio,concealNativeFolio,folioNativeApi,currentMap,showMapHome,lockJournalFolio} from './map-native.js';
+import {initNativeFolio,revealNativeFolio,concealNativeFolio,showMapHome,lockJournalFolio} from './map-native.js';
 import {initConcealOnLeave} from './conceal-on-leave.js';
 let installed=null;
 export function journalMapBridge(doc=document){
@@ -57,7 +57,8 @@ export function installMapAddon(doc=document,win=window){
    if(journalWasOpen&&!now)lockJournalFolio();
    journalWasOpen=now;
   }).observe(doc.getElementById('journal-global-download'),{attributes:true,attributeFilter:['disabled']});
-  win.addEventListener('pagehide',()=>{close();folioNativeApi.clearFolioSession();});
+  // Native module owns session clearing; this handler restores only host tab UI.
+  win.addEventListener('pagehide',close);
   installed={open,close};
  };
  new MutationObserver(tryInstall).observe(doc.documentElement,{childList:true,subtree:true});tryInstall();

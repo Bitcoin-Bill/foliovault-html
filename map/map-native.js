@@ -17,7 +17,8 @@ function syncGuide(){}
 function clearFolioSession(){
   sessionEpoch++;
   (document.getElementById('folio-card')?.querySelectorAll('input,textarea')||[]).forEach(field=>{field.value='';});
-  S.plan=blankPlan();S.dirty=false;S.mode='landing';
+  S.plan=blankPlan();S.dirty=false;S.mode='landing';S.origin='independent';
+  toast('');
   document.getElementById('folio-card')?.replaceChildren();
   concealHeir=()=>{};
 }
@@ -28,6 +29,7 @@ const S = {
   step: 0,
   plan: blankPlan(),
   dirty: false,
+  origin: 'independent', // Session provenance only; never serialized in the guide.
 };
 
 // key: {label, device, generation, media, locations, passphrase}
@@ -590,7 +592,7 @@ function renderExport(host){
     if(pass.value!==confirmPass.value){status.textContent='Passwords do not match.';return;}
     const epoch=sessionEpoch,password=pass.value;pass.value='';confirmPass.value='';save.disabled=true;
     try{const file=await encryptPlan(S.plan,password);if(!sessionCurrent(epoch))return;download('map-notebook.json',JSON.stringify(file,null,2));S.dirty=false;status.textContent='Encrypted Map backup downloaded. Keep its password separate.';}
-    catch(error){if(sessionCurrent(epoch))status.textContent=error.message;}finally{save.disabled=false;}
+    catch(error){if(sessionCurrent(epoch))status.textContent=error.message;}finally{if(sessionCurrent(epoch))save.disabled=false;}
   });
   const row=el('div',{class:'btn-row'},save);
   if(journalBridge?.available())row.append(el('button',{class:'btn ghost',id:'map-to-journal',onclick:()=>{try{journalBridge?.store(mapPage(S.plan));status.textContent='Map page stored in Journal Notepad. Use its encrypted Download notepad control to save it.';}catch(error){status.textContent=error.message;}}},'Store Map page in Journal Notepad'));
@@ -724,9 +726,9 @@ function renderHome(){
   m.append(el('h2',{},'Map'),el('p',{class:'step-intro'},'Write the recovery map for your family. Document the people, arrangements, backups and instructions they will need. No keys are created and no transactions are signed.'));
   m.append(el('div',{class:'note warn'},'Experimental offline guide. Sensitive information belongs only on a fully air-gapped machine. Never enter Bitcoin seeds, private keys, xpubs or wallet seed passphrases. Nothing is saved until you download an encrypted file.'));
   m.append(el('div',{class:'btn-row'},
-    el('button',{class:'btn',id:'map-create',onclick:()=>{if(S.dirty&&!confirm('Replace the current guide? Unsaved changes will be lost.'))return;S.plan=blankPlan();S.mode='wizard';S.step=0;markDirty();renderWizard();}},'Create inheritance guide'),
+    el('button',{class:'btn',id:'map-create',onclick:()=>{if(S.dirty&&!confirm('Replace the current guide? Unsaved changes will be lost.'))return;clearFolioSession();S.mode='wizard';S.step=0;markDirty();renderWizard();}},'Create inheritance guide'),
     el('button',{class:'btn ghost',id:'map-open',onclick:openFileFlow},'Open encrypted guide')));
-  if(journalBridge?.available())m.append(el('button',{class:'btn ghost',id:'map-from-journal',onclick:()=>{try{const plan=readMapPage(journalBridge.read());S.plan=plan;showOpenChoice(plan);}catch(error){toast(error.message);}}},'Load selected Journal Map page'));
+  if(journalBridge?.available())m.append(el('button',{class:'btn ghost',id:'map-from-journal',onclick:()=>{try{const plan=readMapPage(journalBridge.read());clearFolioSession();S.plan=plan;S.origin='journal';showOpenChoice(plan);}catch(error){toast(error.message);}}},'Load selected Journal Map page'));
   if(S.mode!=='landing'||S.plan.meta.planName||S.dirty)m.append(el('button',{class:'btn ghost',id:'map-resume-current',onclick:()=>showOpenChoice(S.plan)},'Continue current Map'));
   m.append(el('p',{class:'hint'},'This native tool uses EntropyLab’s unchanged boot checks, privacy protections, appearance and End session controls. It never reads wallet keys. Journal exchange is explicit through its existing Notepad controls. Backups use the existing encrypted notebook format. Journal can load and save the Map page; this add-on renders it as forms and Heir View.'));
 }
@@ -737,7 +739,7 @@ function openFileFlow(){
   inp.addEventListener('change',async()=>{
     const f=inp.files[0]; if(!f) return;
     const epoch=sessionEpoch;
-    let env; try{ env=JSON.parse(await readFile(f)); if(!sessionCurrent(epoch))return; }catch(e){ toast('Not a readable JSON file'); return; }
+    let env; try{ env=JSON.parse(await readFile(f)); if(!sessionCurrent(epoch))return; }catch(e){ if(sessionCurrent(epoch))toast('Not a readable JSON file'); return; }
     if(env && typeof env==='object' && !Array.isArray(env) && (env.entropylabJournalExport===1||env.magic==='VAULTFOLIO/1')){
       showDecrypt(env);
     } else if(env?.magic==='VAULTFOLIO/2') toast('Version 2 files require the desktop app. This native tool opens EntropyLab Folio files and legacy Folio v1 files. It never strips version 2 unlock methods.');
@@ -764,9 +766,9 @@ function showDecrypt(env){
       const boundary=checkOpenBoundary(plan,TEST_MODE);
       if(boundary){ prog.className='prog err'; prog.textContent=boundary; pi.value=''; return; }
       pi.value=''; prog.textContent='';
-      sessionEpoch++;
+      clearFolioSession();
       S.plan=plan;syncGuide();showOpenChoice(plan);
-    }catch(e){ prog.className='prog err'; prog.textContent=e.message; }
+    }catch(e){ if(sessionCurrent(epoch)){prog.className='prog err';prog.textContent=e.message;} }
   };
   pi.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
   m.append(el('div',{class:'btn-row'},el('button',{class:'btn',onclick:go},'Open')));
@@ -990,10 +992,17 @@ export const folioNativeApi={encryptPlan,decryptPlan,prepareBrowserPlan,blankPla
 export function adoptJournalFolio(guide){
   clearFolioSession();
   S.plan=guide?prepareBrowserPlan(guide):blankPlan();
-  if(guide)syncGuide();
+  if(guide){S.origin='journal';syncGuide();}
   renderHome();
 }
 export function lockJournalFolio(){
+  // Only explicitly independent sessions survive a Journal lock. Unknown origins
+  // fail closed. Global cleanup always clears both origins via initNativeFolio.
+  if(S.origin==='independent'){
+    concealNativeFolio();
+    toast('Journal locked — Map work untouched; download an encrypted copy to keep it.');
+    return;
+  }
   clearFolioSession();renderHome();concealNativeFolio();
 }
 
