@@ -1,16 +1,17 @@
 {
-  "name": "foliovault-html",
-  "version": "0.1.0",
+  "name": "map-entropylab-plugin",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Experimental offline HTML inheritance guide and EntropyLab companion",
+  "description": "Map \u2014 an optional EntropyLab inheritance-guide plugin",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node tests/folio_html.cjs && node --test tests/folio-panel.test.mjs",
-    "verify": "node scripts/verify.mjs"
+    "test": "node tests/folio_html.cjs && node --test tests/folio-panel.test.mjs && node tests/map-compatibility.cjs",
+    "verify": "node scripts/verify.mjs",
+    "build:map": "node scripts/build-map.mjs"
   }
 }
