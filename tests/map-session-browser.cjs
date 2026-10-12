@@ -1,6 +1,6 @@
 // Optional focused GUI check. Supply PLAYWRIGHT_MODULE, CHROMIUM_BINARY and
 // MAP_QA_HTML (separate upstream --test-hooks build, never the shipping artifact).
-const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'./browser/node_modules/playwright');
 const assert=require('node:assert/strict');const {pathToFileURL}=require('node:url');
 (async()=>{const browser=await chromium.launch({executablePath:process.env.CHROMIUM_BINARY,headless:true,args:['--no-sandbox']});try{
  const page=await browser.newPage({acceptDownloads:true});const errors=[],network=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/^https?:/.test(r.url()))network.push(r.url());});

@@ -4,3 +4,6 @@ dist/
 *.elkeys
 *.env
 .DS_Store
+
+/foundation/
+/tests/browser/node_modules/
