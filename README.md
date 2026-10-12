@@ -119,9 +119,12 @@ npm run verify
 
 These include unchanged-Journal compatibility, rejected passwords/tampering,
 legacy v1 import and guide limits. See [Map validation](docs/MAP-VALIDATION.md) and
-[maintainer integration](docs/MAP-INTEGRATION.md). Browser acceptance evidence
-covers actual Chromium UI flows; Safari/Firefox acceptance and independent review
-remain outstanding. The prior prototype evidence is retained in docs/VALIDATION.md.
+[maintainer integration](docs/MAP-INTEGRATION.md). Independent review reports and the remaining work are tracked in
+[Collaborator follow-up](docs/COLLABORATOR-FOLLOWUP.md). Kimi reports PASS for the
+custom artifact, including a byte-identical rebuild. Codex reports CONDITIONAL PASS
+with live Mac Chrome/Firefox checks; Safari remains unverified. Six minor findings
+remain open, including unsaved Map work being cleared on Journal lock in
+Journal-enabled builds. Official adoption still requires a host integration agreement. The prior prototype evidence is retained in docs/VALIDATION.md.
 
 ## Licenses
 
