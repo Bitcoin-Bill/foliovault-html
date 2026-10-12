@@ -1,0 +1,9 @@
+{
+  "folioCommit": "ca65ca280a7d9ceb74ccd6c1dd509b1e32dcf577",
+  "entropyRepository": "https://github.com/OogaBoogaX/entropylab",
+  "entropyCommit": "289975672a7355a9376313a1a593252e67e1dcef",
+  "upstreamModules": {
+    "text-services.js": "f4cf2741387f07e337cbf83e622be86090155da3471b4baf050aed5a6213a9e9",
+    "conceal-on-leave.js": "f7d72a7f96a9fa2fa43785d557864f0f14d26dd67c1a7b4fc740f342b7582768"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "foliovault-html",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Experimental offline HTML inheritance guide and EntropyLab companion",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node tests/folio_html.cjs && node --test tests/folio-panel.test.mjs",
+    "verify": "node scripts/verify.mjs"
+  }
+}
