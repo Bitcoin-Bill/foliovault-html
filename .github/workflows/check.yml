@@ -13,3 +13,34 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run verify
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/checkout@v4
+        with:
+          repository: OogaBoogaX/entropylab
+          ref: 289975672a7355a9376313a1a593252e67e1dcef
+          fetch-depth: 0
+          path: foundation
+      - run: npm ci --ignore-scripts
+        working-directory: foundation
+      - run: npm ci --ignore-scripts --prefix tests/browser
+      - run: node tests/browser/node_modules/playwright/cli.js install --with-deps chromium
+      - run: npm run test:integration
+        env:
+          MAP_HOST: ${{ github.workspace }}/foundation
+      - uses: actions/upload-artifact@v4
+        with:
+          name: map-public-tested-candidate
+          if-no-files-found: error
+          path: |
+            dist/entropylab-map.html
+            dist/MAP-BUILD.json
+            dist/MAP-SHA256SUMS.txt

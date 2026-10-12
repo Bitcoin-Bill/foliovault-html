@@ -10,8 +10,10 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node tests/folio_html.cjs && node --test tests/folio-panel.test.mjs && node tests/map-compatibility.cjs && node tests/map-session.cjs",
+    "test": "node tests/folio_html.cjs && node --test tests/folio-panel.test.mjs && node tests/map-compatibility.cjs && node tests/map-session.cjs && node --test tests/map-security.cjs && node tests/map-ci-contract.cjs",
     "verify": "node scripts/verify.mjs",
-    "build:map": "node scripts/build-map.mjs"
+    "build:map": "node scripts/build-map.mjs",
+    "verify:map": "node scripts/verify-map.mjs",
+    "test:integration": "node scripts/test-map-integration.mjs"
   }
 }

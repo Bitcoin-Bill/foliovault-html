@@ -1,4 +1,4 @@
-import {blankPlan,prepareBrowserPlan} from './map-document.js';
+import {blankPlan,prepareBrowserPlan,GUIDE_LIMITS} from './map-document.js';
 import {deriveJournalKeys,sealExport,openExport,parseFile,wipeBytes,serializeNotebook,parseNotebook} from './journal.js';
 import {t} from './i18n.js';
 
@@ -13,11 +13,12 @@ import {t} from './i18n.js';
 /* ---------------- state ---------------- */
 let sessionEpoch=0;
 let journalBridge=null;
-function syncGuide(){}
+let acceptedPlan=null;
+function syncGuide(){acceptedPlan=prepareBrowserPlan(S.plan);}
 function clearFolioSession(){
   sessionEpoch++;
   (document.getElementById('folio-card')?.querySelectorAll('input,textarea')||[]).forEach(field=>{field.value='';});
-  S.plan=blankPlan();S.dirty=false;S.mode='landing';S.origin='independent';S.step=0;S.heirStep=0;
+  S.plan=blankPlan();S.dirty=false;S.mode='landing';S.origin='independent';S.step=0;S.heirStep=0;S.revision=0;syncGuide();
   toast('');
   document.getElementById('folio-card')?.replaceChildren();
   concealHeir=()=>{};
@@ -30,6 +31,7 @@ const S = {
   step: 0,
   plan: blankPlan(),
   dirty: false,
+  revision: 0,
   origin: 'independent', // Session provenance only; never serialized in the guide.
 };
 
@@ -68,6 +70,7 @@ const el = (tag, attrs={}, ...kids)=>{
   if(['input','textarea','select'].includes(tag)){
     for(const [key,value] of Object.entries({autocomplete:'off',spellcheck:'false',autocorrect:'off',autocapitalize:'off',translate:'no','data-gramm':'false','data-gramm_editor':'false','data-enable-grammarly':'false','data-1p-ignore':'','data-lpignore':'true','data-bwignore':'','data-form-type':'other'})) n.setAttribute(key,value);
   }
+  if(tag==='textarea'||(tag==='input'&&attrs.type==='text'))n.setAttribute('maxlength',String(GUIDE_LIMITS.fieldText));
   for(const [k,v] of Object.entries(attrs)){
     if(k==='style') continue;
     if(k==='class'){
@@ -82,7 +85,18 @@ const el = (tag, attrs={}, ...kids)=>{
 };
 const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(msg){const status=document.getElementById('folio-status');if(status)status.textContent=msg;}
-function markDirty(){ S.dirty=true;syncGuide(); }
+function markDirty(){
+  try{syncGuide();S.revision++;S.dirty=true;return true;}
+  catch(error){
+    // Reject the edit as a whole. Re-render after the current event's listeners
+    // finish so closures cannot keep editing a discarded over-budget record.
+    S.plan=JSON.parse(JSON.stringify(acceptedPlan||blankPlan()));
+    const epoch=sessionEpoch;
+    toast(error.message+' Last change was not kept. Reduce the guide before adding more.');
+    Promise.resolve().then(()=>{if(!sessionCurrent(epoch))return;if(S.mode==='heir')showHeir(S.plan);else if(S.mode==='wizard')renderWizard();else renderHome();});
+    return false;
+  }
+}
 
 /* ---------------- network honesty ---------------- */
 
@@ -385,7 +399,7 @@ function renderVaults(host){
 function analyzePlan(p){
   const out=[];
   const add=(sev,title,detail,fix)=>out.push({sev,title,detail,fix});
-  const locs={}; // normalized location -> [{vault,key}]
+  const locs=Object.create(null); // normalized location -> [{vault,key}]
   let allDevices=new Set(), allGen=new Set(), anyTimelock=false, anyPassphraseMemory=false, totalKeys=0;
 
   p.vaults.forEach((v,vi)=>{
@@ -411,7 +425,7 @@ function analyzePlan(p){
 
   // quorum-in-one-location check (per vault)
   for(const [loc,holders] of Object.entries(locs)){
-    const byVault={};
+    const byVault=Object.create(null);
     holders.forEach(h=>{byVault[h.vault]=byVault[h.vault]||new Set(); byVault[h.vault].add(h.kn);});
     for(const [vn,keys] of Object.entries(byVault)){
       const m=holders.find(h=>h.vault===vn)?.m||1;
@@ -591,8 +605,8 @@ function renderExport(host){
   const status=el('p',{class:'hint',id:'map-backup-status'}),save=el('button',{class:'btn',id:'map-backup'},'Download encrypted Map backup');
   save.addEventListener('click',async()=>{
     if(pass.value!==confirmPass.value){status.textContent='Passwords do not match.';return;}
-    const epoch=sessionEpoch,password=pass.value;pass.value='';confirmPass.value='';save.disabled=true;
-    try{const file=await encryptPlan(S.plan,password);if(!sessionCurrent(epoch))return;download('map-notebook.json',JSON.stringify(file,null,2));S.dirty=false;status.textContent='Encrypted Map backup downloaded. Keep its password separate.';}
+    const epoch=sessionEpoch,revision=S.revision,password=pass.value;pass.value='';confirmPass.value='';save.disabled=true;
+    try{const file=await encryptPlan(S.plan,password);if(!sessionCurrent(epoch))return;download('map-notebook.json',JSON.stringify(file,null,2));if(S.revision===revision)S.dirty=false;status.textContent=S.revision===revision?'Encrypted Map backup downloaded. Keep its password separate.':'Earlier guide snapshot downloaded. Newer changes still need an encrypted backup.';}
     catch(error){if(sessionCurrent(epoch))status.textContent=error.message;}finally{if(sessionCurrent(epoch))save.disabled=false;}
   });
   const row=el('div',{class:'btn-row'},save);
@@ -776,6 +790,7 @@ function showDecrypt(env){
   window.scrollTo(0,0);
 }
 function showOpenChoice(plan){
+  S.plan=plan;syncGuide();
   const m=document.getElementById('folio-card'); m.innerHTML='';
   m.append(el('div',{class:'folio'},'File · Opened'));
   m.append(el('h2',{},'Plan opened: '+(plan.meta.planName||'untitled')));
@@ -955,8 +970,8 @@ for(const section of Object.keys(RECORD_FIELDS)){
 }
 let recordFieldId=0;
 function recordFields(section,row){
-  return [...RECORD_FIELDS[section],...(section==='backupRecords'?(EXTRA_BACKUP_FIELDS[row.scheme]||[]):[]),
-    ...(section==='accessRecords'?(ACCESS_EXTRA[row.kind]||[]):[]),
+  return [...RECORD_FIELDS[section],...(section==='backupRecords'?(Object.hasOwn(EXTRA_BACKUP_FIELDS,row.scheme)?EXTRA_BACKUP_FIELDS[row.scheme]:[]):[]),
+    ...(section==='accessRecords'?(Object.hasOwn(ACCESS_EXTRA,row.kind)?ACCESS_EXTRA[row.kind]:[]):[]),
     ...(section==='accessRecords'&&row.mode==='Direct access details inside encrypted guide'?ACCESS_DIRECT:[])];
 }
 function renderRecords(host,step){

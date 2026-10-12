@@ -1,0 +1,11 @@
+import {readFileSync} from 'node:fs';import {createHash} from 'node:crypto';import assert from 'node:assert/strict';
+const root=new URL('../',import.meta.url),hash=b=>createHash('sha256').update(b).digest('hex');
+const record=JSON.parse(readFileSync(new URL('dist/MAP-BUILD.json',root)));
+const pin=JSON.parse(readFileSync(new URL('integration/FOUNDATION.json',root)));
+assert.equal(record.entropyCommit,pin.entropyCommit);
+for(const [path,digest] of Object.entries(record.sourceSha256))assert.equal(hash(readFileSync(new URL(path,root))),digest,'Source changed: '+path);
+const bytes=readFileSync(new URL('dist/entropylab-map.html',root)),html=bytes.toString();assert.equal(hash(bytes),record.artifactSha256);
+assert.equal(readFileSync(new URL('dist/MAP-SHA256SUMS.txt',root),'utf8'),record.artifactSha256+'  entropylab-map.html\n');
+for(const marker of ['__entropyLabCrypto','__entropyLabPassphrase','__entropyLabWasmMemory','__entropyLabStationRoot','Focus diagnostic log'])assert.ok(!html.includes(marker),'QA marker in public artifact: '+marker);
+for(const marker of ["connect-src 'none'","object-src 'none'","form-action 'none'",'Copyright (c) 2026 Bitcoin-Bill','Copyright 2025 Daniel Schadt','map-addon-tab'])assert.ok(html.includes(marker),'Missing protection/notice/module: '+marker);
+console.log('PASS public Map artifact identity, current source hashes, CSP and no-QA markers: '+record.artifactSha256);

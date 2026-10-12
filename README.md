@@ -20,9 +20,8 @@ only be entered on a trusted fully air-gapped machine.
 
 No existing EntropyLab source file, cryptographic engine, Journal schema or tool
 logic is edited by the add-on build. An additional entry module loads the original
-app and registers Map after the host boot checks pass. The builder verifies every
-tracked upstream source/build/package input against the pinned commit before and
-after packaging. The custom artifact has its own hash: upstream attestations and
+app and registers Map after the host boot checks pass. The builder verifies pinned source/build/package inputs, the manifest and favicon
+against the commit before and after packaging, and rejects staged input changes. The custom artifact has its own hash: upstream attestations and
 checksums do not authenticate it.
 
 ## Build the custom HTML
@@ -133,3 +132,36 @@ Map's Folio-derived code is MIT; retain LICENSE and the generated artifact notic
 EntropyLab is dedicated to the public domain under its Ooga Booga license;
 `integration/LICENSE-ENTROPYLAB.txt` is retained. Original dependency notices remain
 in the custom build. This project does not imply endorsement by Team Ooga Booga.
+
+
+## Security review candidate: resource limits and validation
+
+The security-fix review branch bounds a guide to 500 total object records across
+arrays, 10,000 characters per text field, 100,000 characters across strings and
+property names, 10,000 visited JSON values, and the existing nesting/per-array
+limits. Defaults count toward the budgets. Imports are validated before adoption;
+over-limit edits restore the last accepted guide and display a message. Existing
+large files above these limits are rejected without modification; reduce them
+using a compatible offline version and retain the original encrypted backup.
+
+The last accepted guide is retained as an additional in-memory rollback snapshot.
+It shares the session's lifecycle: Journal-derived sessions clear both copies on
+Journal lock; global session cleanup clears both origins. This does not guarantee
+browser-memory erasure. An export of an earlier revision does not mark newer edits
+saved. Back up again after editing during encryption.
+
+Integrated validation (separate from the historical standalone build):
+
+```
+npm ci --ignore-scripts --prefix tests/browser
+node tests/browser/node_modules/playwright/cli.js install chromium
+MAP_HOST=/absolute/pinned/entropylab npm run test:integration
+npm run verify:map
+```
+
+The integration job checks host-input mutations, module equality, repeated public
+builds, public browser regressions and a separate Journal QA build. It uploads only
+the tested public candidate and `MAP-BUILD.json` / `MAP-SHA256SUMS.txt`. The build
+record identifies Map's commit, dirty status, source hashes and pinned host. QA
+artifacts remain separate. GitHub execution is pending until this review branch is
+pushed; a local passing run is not a hosted CI result.

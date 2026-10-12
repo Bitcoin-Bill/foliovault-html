@@ -1,6 +1,6 @@
 // Optional real-browser regression: MAP_BROWSER=webkit or chromium; MAP_HTML; CHROMIUM_BINARY.
-const {chromium,webkit}=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/playwright');
-(async()=>{const b=await (process.env.MAP_BROWSER==='webkit'?webkit.launch():chromium.launch({executablePath:process.env.CHROMIUM_BINARY||'/tmp/folio-chromium/chromium',args:['--no-sandbox']}));
+const {chromium,webkit}=require(process.env.PLAYWRIGHT_MODULE||(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES?process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/playwright':'./browser/node_modules/playwright'));
+(async()=>{const b=await (process.env.MAP_BROWSER==='webkit'?webkit.launch():chromium.launch({executablePath:process.env.CHROMIUM_BINARY||undefined,args:['--no-sandbox']}));
  const p=await b.newPage();
  const errors=[],requests=[];p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url());});
  await p.goto(require('node:url').pathToFileURL(process.env.MAP_HTML||require('node:path').resolve(__dirname,'../dist/entropylab-map.html')).href);
