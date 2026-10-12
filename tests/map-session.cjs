@@ -44,7 +44,7 @@ class Element {
  const open=findText(roots['folio-card'],'Open');done=open.fire('click');run('lockJournalFolio()');d.resolve(model.blankPlan());await done;assert.equal(run('S.mode'),'landing');assert.equal(run('S.origin'),'independent');
  console.log('PASS late decrypt discarded after Journal wipe');
  await journal();run('lockJournalFolio()');ctx.journalText=run("mapPage({...blankPlan(),meta:{planName:'Fresh page'}})");run('renderHome()');await doc.getElementById('map-from-journal').fire('click');assert.equal(run('S.plan.meta.planName'),'Fresh page');
- for(const origin of ['independent','journal'])for(const event of ['pagehide','pageshow']){independent();ctx.origin=origin;run('S.origin=origin');const epoch=run('sessionEpoch');for(const f of listeners[event])f({persisted:true});assert.equal(run('S.plan.meta.planName'),'');assert.equal(run('sessionCurrent('+epoch+')'),false);assert.ok(roots['folio-card'].children.length);}
+ for(const origin of ['independent','journal'])for(const event of ['pagehide','pageshow']){independent();ctx.origin=origin;run('S.origin=origin');const epoch=run('sessionEpoch');for(const f of listeners[event])f({persisted:true});assert.equal(run('S.plan.meta.planName'),'');assert.equal(run('acceptedPlan.meta.planName'),'','rollback snapshot also clears');assert.equal(run('sessionCurrent('+epoch+')'),false);assert.ok(roots['folio-card'].children.length);}
  console.log('PASS fresh Journal read; global pagehide and persisted-pageshow wipe both origins');
  // New guide and file replacement must invalidate previous work and reset provenance.
  await journal();run('renderHome()');await doc.getElementById('map-create').fire('click');assert.equal(run('S.origin'),'independent');
@@ -64,4 +64,18 @@ class Element {
  if(origin==='journal'){run('lockJournalFolio()');assert.equal(run('S.plan.meta.planName'),'');}
  }
  console.log('PASS view switches invalidate pending export, clear passwords and preserve dirty state and origin; Journal lock still wipes');
+ // F-01: completion belongs to the exported revision, not newer edits.
+ for(const origin of ['independent','journal']){
+  independent();ctx.origin=origin;run('S.origin=origin');d=deferred();e=exportStart();
+  run("S.step=1;renderWizard();S.plan.meta.planName='New unsaved edit';markDirty()");
+  d.resolve({encrypted:'older snapshot'});await e.done;
+  assert.equal(run('S.dirty'),true,'F-01: newer edits must remain dirty');
+  assert.equal(run('S.plan.meta.planName'),'New unsaved edit');
+  d=deferred();e=exportStart();d.resolve({encrypted:'current snapshot'});await e.done;assert.equal(run('S.dirty'),false);
+ }
+ console.log('PASS F-01 export revision guards for both origins');
+ independent();run("S.mode='wizard';S.step=2;S.plan.people.heirs=Array.from({length:500},()=>({name:'Invented'}));syncGuide();renderWizard()");
+ const accepted=run('JSON.stringify(prepareBrowserPlan(S.plan))');await findText(roots['folio-card'],'+ Add an heir').fire('click');await Promise.resolve();assert.equal(snapshot(),accepted,'F-03 rejected add restores the accepted plan');
+ assert.match(roots['folio-status'].textContent,/Last change was not kept/);
+ console.log('PASS F-03 authoring record limit rollback');
 })().catch(e=>{console.error(e);process.exitCode=1;});

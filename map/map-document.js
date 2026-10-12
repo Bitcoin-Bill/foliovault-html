@@ -11,15 +11,29 @@ export function blankPlan(){
     ownerNotes:'',
   };
 }
+// Shared import/authoring budgets bound total work, not only each nested array.
+export const GUIDE_LIMITS=Object.freeze({records:500,nodes:10000,text:100000,fieldText:10000});
 export function prepareBrowserPlan(input){
   if(!input || typeof input!=='object' || Array.isArray(input)) throw new Error('Invalid guide document');
+  let nodes=0,records=0,text=0;
+  const countText=value=>{
+    if(value.length>GUIDE_LIMITS.fieldText)throw new Error('Guide field text limit exceeded (10,000 characters).');
+    text+=value.length;
+    if(text>GUIDE_LIMITS.text)throw new Error('Guide total text limit exceeded (100,000 characters).');
+  };
   function inspect(value,depth=0){
+    if(++nodes>GUIDE_LIMITS.nodes)throw new Error('Guide complexity node limit exceeded.');
+    if(typeof value==='string')countText(value);
     if(depth>30) throw new Error('Guide nesting limit exceeded');
     if(value && typeof value==='object'){
-      if(Array.isArray(value) && value.length>500) throw new Error('Too many records');
+      if(Array.isArray(value)){
+        if(value.length>500)throw new Error('Too many records');
+        records+=value.filter(item=>item&&typeof item==='object'&&!Array.isArray(item)).length;
+        if(records>GUIDE_LIMITS.records)throw new Error('Guide total record limit exceeded (500 records).');
+      }
       for(const [key,item] of Object.entries(value)){
         if(['__proto__','constructor','prototype'].includes(key)) throw new Error('Invalid guide property');
-        inspect(item,depth+1);
+        countText(key);inspect(item,depth+1);
       }
     }
   }
@@ -49,11 +63,14 @@ export function prepareBrowserPlan(input){
     if(!rows(v.keys)||Object.values(v).some(x=>x!=null&&typeof x==='object'&&!Array.isArray(x)&&!object(x))) throw new Error('Invalid vault');
     for(const key of ['name','tier','script','coordinator','notes']) if(key in v&&typeof v[key]!=='string') throw new Error('Invalid vault text');
     if(v.timelock!=null&&(!object(v.timelock)||typeof v.timelock.enabled!=='boolean')) throw new Error('Invalid timelock');
+    if(v.timelock)for(const key of ['delay','refreshNote'])if(key in v.timelock&&typeof v.timelock[key]!=='string')throw new Error('Invalid timelock text');
     for(const row of v.keys) if(Object.values(row).some(x=>typeof x!=='string')) throw new Error('Invalid key record');
   }
   for(const row of [...p.people.heirs,...p.backups.descriptorLocations]) if(Object.values(row).some(x=>typeof x!=='string'&&typeof x!=='boolean')) throw new Error('Invalid text record');
   p.heirNotes??=''; p.heirChecklist??={};
   if(typeof p.heirNotes!=='string'||!object(p.heirChecklist)||Object.values(p.heirChecklist).some(x=>typeof x!=='boolean')) throw new Error('Invalid heir progress');
+  if(p.amendments!=null&&(!Array.isArray(p.amendments)||p.amendments.some(x=>typeof x!=='string')))throw new Error('Invalid amendment text');
+  nodes=0;records=0;text=0;inspect(p); // Defaults count toward the same limits.
   return p;
 }
 
