@@ -18,6 +18,12 @@ const {webcrypto,pbkdf2Sync,createCipheriv}=require('node:crypto');
  await assert.rejects(run("decryptPlan(backup,'wrong')"));await assert.rejects(run("encryptPlan(S.plan,'short')"));
  ctx.backup.ciphertext='00'+ctx.backup.ciphertext.slice(2);await assert.rejects(run("decryptPlan(backup,'map compatibility password')"));
  assert.throws(()=>run("readMapPage('ordinary journal note')"));assert.throws(()=>run("mapPage({...blankPlan(),ownerNotes:'x'.repeat(1000000)})"));
+ // MAP-02/03: synthetic documents remain rejected at open and export boundaries.
+ run("S.plan.meta.syntheticTest=true");
+ assert.match(run("checkOpenBoundary(S.plan)"),/Synthetic test file/);
+ await assert.rejects(run("encryptPlan(S.plan,'map compatibility password')"),/synthetic test edition/);
+ run("delete S.plan.meta.syntheticTest");
+ assert.equal(run("checkOpenBoundary(S.plan)"),null);
  // Independently produced legacy v1 file, fixed fixture bytes only.
  const salt=Buffer.alloc(16,1),iv=Buffer.alloc(12,2),password='legacy test password';const key=pbkdf2Sync(password,salt,600000,32,'sha256');const cipher=createCipheriv('aes-256-gcm',key,iv);const ct=Buffer.concat([cipher.update(JSON.stringify({meta:{planName:'Legacy fixture'}})),cipher.final(),cipher.getAuthTag()]);
  ctx.legacy={magic:'VAULTFOLIO/1',kdf:{name:'PBKDF2',hash:'SHA-256',iterations:600000,salt:salt.toString('base64')},cipher:{name:'AES-256-GCM',iv:iv.toString('base64')},data:ct.toString('base64')};
