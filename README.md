@@ -43,7 +43,9 @@ machine, and open locally in a supported browser. Select **Map** on the tool lin
 Do not rely on the chat preview for browser behavior.
 
 The original standalone Folio prototype remains under `src/foliovault.html` for
-history and legacy evaluation. `npm run build` produces that earlier standalone
+history and legacy evaluation. It predates the plugin's guide budgets and export
+revision tracking — those protections exist only in the EntropyLab plugin, not in
+the standalone file. `npm run build` produces that earlier standalone
 artifact; **`npm run build:map` builds the new EntropyLab plugin**.
 
 ## Create, back up and recover a Map
@@ -120,11 +122,12 @@ npm run verify
 These include unchanged-Journal compatibility, rejected passwords/tampering,
 legacy v1 import and guide limits. See [Map validation](docs/MAP-VALIDATION.md) and
 [maintainer integration](docs/MAP-INTEGRATION.md). Independent review reports and the remaining work are tracked in
-[Collaborator follow-up](docs/COLLABORATOR-FOLLOWUP.md). Kimi reports PASS for the
-custom artifact, including a byte-identical rebuild. Codex reports CONDITIONAL PASS
-with live Mac Chrome/Firefox checks; Safari remains unverified. Six minor findings
-remain open, including unsaved Map work being cleared on Journal lock in
-Journal-enabled builds. Official adoption still requires a host integration agreement. The prior prototype evidence is retained in docs/VALIDATION.md.
+[Collaborator follow-up](docs/COLLABORATOR-FOLLOWUP.md). The MAP-01–06 review
+findings and the F-01–F-05 security-fix round are resolved and merged (PRs #4–#6
+and #8). Kimi's independent reviews report PASS, including byte-identical rebuilds
+of the public artifact, and hosted CI (verify + integration jobs) passed for PR #8 before merge.
+Manual Safari/accessibility/idle/bfcache acceptance remains open in issue #7.
+Official adoption still requires a host integration agreement. The prior prototype evidence is retained in docs/VALIDATION.md.
 
 ## Licenses
 
