@@ -137,9 +137,9 @@ EntropyLab is dedicated to the public domain under its Ooga Booga license;
 in the custom build. This project does not imply endorsement by Team Ooga Booga.
 
 
-## Security review candidate: resource limits and validation
+## Security fixes: resource limits and validation
 
-The security-fix review branch bounds a guide to 500 total object records across
+The security fixes merged in PR #8 bound a guide to 500 total object records across
 arrays, 10,000 characters per text field, 100,000 characters across strings and
 property names, 10,000 visited JSON values, and the existing nesting/per-array
 limits. Defaults count toward the budgets. Imports are validated before adoption;
@@ -166,5 +166,9 @@ The integration job checks host-input mutations, module equality, repeated publi
 builds, public browser regressions and a separate Journal QA build. It uploads only
 the tested public candidate and `MAP-BUILD.json` / `MAP-SHA256SUMS.txt`. The build
 record identifies Map's commit, dirty status, source hashes and pinned host. QA
-artifacts remain separate. GitHub execution is pending until this review branch is
-pushed; a local passing run is not a hosted CI result.
+artifacts remain separate. The earlier note that GitHub execution was pending
+described the unpushed review candidate and is historical. Hosted `verify` and
+`integration` checks subsequently passed for PR #8 before merge:
+[HTML checks run 38306734957](https://github.com/Bitcoin-Bill/map/actions/runs/38306734957).
+This hosted result is distinct from the local validation runs; manual acceptance
+checks remain open in [issue #7](https://github.com/Bitcoin-Bill/map/issues/7).
