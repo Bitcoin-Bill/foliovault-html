@@ -35,6 +35,9 @@ Propose a small Map-owned adapter for encrypted file operations, separate from t
 existing Journal page-exchange bridge. Keep editor/Heir rendering away from Journal
 function names and DOM IDs. Reuse existing bridge structure instead of introducing
 a generic plugin framework.
+Shape the adapter around Map's open/save-encrypted-plan, legacy-import and error
+needs, rather than mirroring Journal function signatures one for one. This is a
+Map-owned boundary, not an upstream-approved interface.
 
 Preserve unchanged host encryption, notebook framing, password requirements,
 legacy encrypted imports, error behavior, epoch cancellation and revision tracking.
@@ -51,6 +54,16 @@ interruption, both session origins, missing/locked Journal, public hidden-Journa
 policy, and separate Journal QA workflows. Update builder module lists/source hashes
 if files move. Reproducibility means repeated builds of the new source match; a
 refactor may legitimately change the HTML hash from the earlier frozen artifact.
+Extend module verification and `verify-map.mjs` expectations to the new layout;
+retain every existing check at its current strictness, including CSP, no-QA-marker
+checks, staged-index rejection and artifact identity. Add coverage; do not loosen checks.
+
+Record old-to-new artifact hashes, each tied to its source state, in the A1 PR
+description and provenance output. Append the A1 result to the historical lineage
+in `docs/HEIR-NAVIGATION-AND-SAFARI.md` when it lands; never replace earlier records.
+The existing public lineage includes `f690b516…` (PR #6 merge `8ccc9fc…`) followed
+by `5c7d160f…` (PR #8 merge `79fcaa0…`); record full hashes in the implementation
+evidence and append A1's new hash only after building and verifying it.
 
 ## A2 — Define and strengthen the guide-only boundary
 
@@ -77,12 +90,27 @@ in errors/logs, or additional persistence. Use invented fixtures only.
 Pattern screening cannot detect arbitrary passphrases or deliberately disguised
 secrets. Document what is actually enforced; never promise that free text is secret-free.
 Keep controls narrow enough that ordinary recovery instructions remain useful.
+The detector specification must distinguish meta-references, such as "the seed
+words are in the bank vault envelope", from literal seed/key material. Define
+the false-positive budget and its test corpus before implementation; ordinary
+references to recovery materials must not be rejected simply for naming them.
 
 Compatibility decision required before any stricter policy lands: existing guides
 may contain newly disallowed content. Never silently strip values, rewrite original
 encrypted files, or offer plaintext migration exports. Specify rejection/recovery
 behavior and an explicit, reviewed migration path if needed. Until that decision,
 do not remove direct-access fields or change unknown-field preservation.
+No previously valid encrypted file may become unreadable without a documented,
+usable recovery route. The choice between warn-and-allow, opening while restricting
+re-save, or rejection with recovery remains deferred to the A2 decision session.
+
+Preserve value-level round-trip fidelity of untouched unknown fields: each parsed
+value must survive decrypt -> load -> re-save -> decrypt unchanged. The detector
+may inspect unknown-field content but must not touch or rewrite those fields.
+Verify this by structural comparison after a full encrypted round trip, not file
+byte comparison. Fresh encryption randomness changes ciphertext, and JSON
+serialization may legitimately change key order or whitespace. This requirement
+does not decide how A2 handles restricted content or authorize silently dropping it.
 
 Acceptance later: positive and negative invented examples, false positives, nested
 and unknown fields, every entry boundary, bounded processing near guide limits,
